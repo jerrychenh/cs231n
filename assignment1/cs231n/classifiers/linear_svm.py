@@ -18,7 +18,7 @@ def svm_loss_naive(W, X, y, reg):
     - reg: (float) regularization strength
 
     Returns a tuple of:
-    - loss as single float
+    - loss as single  
     - gradient with respect to weights W; an array of same shape as W
     """
     dW = np.zeros(W.shape) # initialize the gradient as zero
@@ -36,13 +36,22 @@ def svm_loss_naive(W, X, y, reg):
             margin = scores[j] - correct_class_score + 1 # note delta = 1
             if margin > 0:
                 loss += margin
+                # analytically computed gradient, assume loss is 1, 线性求导xw, 导数就是x
+                # make incorrect score smaller
+                dW[:, j] += X[i,:].T
+                # make correct score larger
+                dW[:, y[i]] -= X[i, :].T
 
     # Right now the loss is a sum over all training examples, but we want it
     # to be an average instead so we divide by num_train.
     loss /= num_train
+    dW /= num_train
 
     # Add regularization to the loss.
     loss += reg * np.sum(W * W)
+    # regularization, limit W not be too large
+    # if W is large than loss is large
+    dW += 2 * reg * W 
 
     #############################################################################
     # TODO:                                                                     #
@@ -53,8 +62,6 @@ def svm_loss_naive(W, X, y, reg):
     # code above to compute the gradient.                                       #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     
@@ -77,7 +84,8 @@ def svm_loss_vectorized(W, X, y, reg):
     # result in loss.                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    scores = X.dot(W)
+    loss = np.sum(np.maximum(scores - scores[y] + 1, 0)) - X.shape[0]
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
