@@ -24,7 +24,9 @@ def softmax_loss_naive(W, X, y, reg):
     # Initialize the loss and gradient to zero.
     loss = 0.0
     dW = np.zeros_like(W)
-
+    
+    num_train = X.shape[0]
+    num_class = W.shape[1]
     #############################################################################
     # TODO: Compute the softmax loss and its gradient using explicit loops.     #
     # Store the loss in loss and the gradient in dW. If you are not careful     #
@@ -32,9 +34,21 @@ def softmax_loss_naive(W, X, y, reg):
     # regularization!                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    scores = X.dot(W)
+    for i in range(num_train):
+        f = scores[i] - np.max(scores[i])
+        softmax = np.exp(f)/np.sum(np.exp(f))
+        loss += -np.log(softmax[y[i]])
+        
+        for j in range(num_class):
+            dW[:, j] += X[i] * softmax[j]
+        dW[:, y[i]] -= X[i]
+        
+    loss /= num_train
+    dW /= num_train
+        
+    loss += reg * np.sum(W * W)
+    dW += 2 * reg * W
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW
@@ -58,8 +72,27 @@ def softmax_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
-
+    num_train = X.shape[0]
+    num_class = W.shape[1]
+    scores = X.dot(W) # shape (N, C)
+    ms = np.max(scores, axis = 1, keepdims=True)
+    #print("ms shape:" + str(ms.shape))
+    scores -= ms
+    soft_sum = np.sum(np.exp(scores), axis = 1, keepdims=True)
+    softmax = np.exp(scores) / soft_sum
+    loss += -np.sum(np.log(softmax[np.arange(num_train), y]))
+    
+    # W shape (D, C)
+    # X shape (N, D)
+    # softmax, scores shape (N, C)
+    softmax[np.arange(num_train), y] -= 1
+    dW += X.T.dot(softmax)
+    
+    loss /= num_train
+    dW /= num_train
+    
+    loss += reg * np.sum(W*W)
+    dW += 2 * reg * W
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW
