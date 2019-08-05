@@ -80,7 +80,9 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        fc1 = X.dot(W1) + b1 # full connected
+        h1 = np.maximum(fc1, 0) # ReLU
+        scores = h1.dot(W2) + b2 # fc2
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -98,7 +100,12 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        scores -= np.max(scores, axis = 1, keepdims = True)
+        scores_sum = np.sum(np.exp(scores), axis = 1, keepdims = True)
+        softmax = np.exp(scores)/scores_sum
+        
+        loss = -np.sum(np.log(softmax[np.arange(N), y])) / N
+        loss += reg * (np.sum(W1 * W1) + np.sum(W2 *W2))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -110,9 +117,39 @@ class TwoLayerNet(object):
         # grads['W1'] should store the gradient on W1, and be a matrix of same size #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        
+        # X (N, D)
+        dW1 = np.zeros(W1.shape) # (D, H)
+        db1 = np.zeros(b1.shape) # (H, )
+        # fc1 (N, H)
+        # h1  (N, H)
+        dW2 = np.zeros(W2.shape) # (H, C)
+        db2 = np.zeros(b2.shape) # (C, )
+        
+        # calculate delta, for i != label which means the other C-1 class, we should reduce the prob to 0
+        # for the right class label, we should increase the prob to 1, like [0,0,0,0,0,1,0,0,0,0], delta is: prob - 1
+        softmax[np.arange(N), y] -= 1 # (N, C), this is the delta from the output layer
+        dW2 = h1.T.dot(softmax)
+        db2 = softmax.sum(axis = 0)
+        dW2 /= N
+        db2 /= N
+        
+        # backpropgate delta to hidden layer
+        h1_delta = softmax.dot(W2.T)
+        fc1_delta = h1_delta * (fc1>0)
+        dW1 = X.T.dot(fc1_delta)
+        db1 = fc1_delta.sum(axis = 0)
+        dW1 /= N
+        db1 /= N
+        
+        dW1 += 2 * reg * W1
+        dW2 += 2 * reg * W2
+        
+        grads['W1'] = dW1
+        grads['b1'] = db1
+        grads['W2'] = dW2
+        grads['b2'] = db2
+       
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         return loss, grads
@@ -155,8 +192,9 @@ class TwoLayerNet(object):
             # them in X_batch and y_batch respectively.                             #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            pass
+            index = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[index]
+            y_batch = y[index]
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -172,7 +210,10 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            self.params['W1'] -= learning_rate * grads['W1']
+            self.params['b1'] -= learning_rate * grads['b1']
+            self.params['W2'] -= learning_rate * grads['W2']
+            self.params['b2'] -= learning_rate * grads['b2']
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -217,8 +258,10 @@ class TwoLayerNet(object):
         # TODO: Implement this function; it should be VERY simple!                #
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        fc1 = X.dot(self.params['W1']) + self.params['b1']
+        h1 = np.maximum(fc1, 0)
+        scores = h1.dot(self.params['W2']) + self.params['b2']
+        y_pred = np.argmax(scores, axis = 1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
