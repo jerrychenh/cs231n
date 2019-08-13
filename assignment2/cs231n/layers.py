@@ -27,7 +27,8 @@ def affine_forward(x, w, b):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x_reshape = x.reshape((x.shape[0], -1))
+    out = x_reshape.dot(w) + b
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -59,8 +60,13 @@ def affine_backward(dout, cache):
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    N = x.shape[0]
+    M = np.prod(x[0].shape)
+    X = x.reshape((N, -1))
+    dx = dout.dot(w.T).reshape(x.shape)
+    dw = X.T.dot(dout)
+    db = np.sum(dout, axis = 0)
+    
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -86,7 +92,7 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.maximum(x, 0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -113,7 +119,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx = dout * (x > 0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -767,6 +773,7 @@ def svm_loss(x, y):
     correct_class_scores = x[np.arange(N), y]
     margins = np.maximum(0, x - correct_class_scores[:, np.newaxis] + 1.0)
     margins[np.arange(N), y] = 0
+    # svm loss, sum all margins
     loss = np.sum(margins) / N
     num_pos = np.sum(margins > 0, axis=1)
     dx = np.zeros_like(x)
@@ -795,7 +802,9 @@ def softmax_loss(x, y):
     log_probs = shifted_logits - np.log(Z)
     probs = np.exp(log_probs)
     N = x.shape[0]
+    # cross entropy loss: -pi_actural * log(pi_simulate), where pi_actual = 1
     loss = -np.sum(log_probs[np.arange(N), y]) / N
+    # analystic grad, d loss
     dx = probs.copy()
     dx[np.arange(N), y] -= 1
     dx /= N
