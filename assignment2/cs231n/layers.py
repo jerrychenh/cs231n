@@ -199,7 +199,15 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        sample_mean = x.mean(axis = 0)
+        sample_var = x.var(axis = 0) + eps
+        std = np.sqrt(sample_var)
+        z = (x - sample_mean) / std
+        out = gamma * z + beta
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+        
+        cache = {'mean':sample_mean, 'var':sample_var, 'x':x, 'z':z, 'out':out, 'std': std, 'gamma':gamma}
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -214,7 +222,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        out = gamma * (x - running_mean) / np.sqrt(running_var) + beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -255,8 +263,32 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    # u: mean, v: var (not std)
+    #
+    # f = gamma * z + beta
+    # z = (x - u)/ sqrt(v)   (N,D)
+    # u = x/N            (D,)
+    # v = (x - u)**2 / N    (D,)
+    dbeta = dout.sum(axis = 0) #(D, )
+    dgamma = np.sum(dout * cache['z'], axis = 0) #(D, )
+    
+    # low dim broadcast to high dim
+    N = 1.0 * dout.shape[0]
+    dfdz = dout * cache['gamma'] #(N, D)
+    dudx = 1/N             #(N, D)
+    dvdu = - 2 / N * np.sum(cache['x'] - cache['mean'], axis = 0) #(D, )
+    dvdx = 2 / N * (cache['x'] - cache['mean']) #(N, D)
+    
+    dzdu = - 1 / cache['std'] #(D, )
+    # why shape: (N, D), A: the shape is actually decided by the formula
+    # z = (x - u)/ sqrt(v), so dzdv has (x-u) which x has the largest shape (N, D)
+    # for dydx, we can have the result shape with lower dim than y, but will broadcast when it is needed
+    dzdv = - 0.5 * (cache['var'] ** -1.5) * (cache['x'] - cache['mean']) #(N, D)
+    dzdx = 1 / cache['std'] # (N， D)
+    
+    # dx (N, D)
+    # dx = dfdz * dzdx + dfdz * dzdu * dudx + dfdz * dzdv * (dvdx + dvdu * dudx)
+    dx = dfdz * dzdx + np.sum(dfdz*dzdu, axis = 0) * dudx + np.sum(dfdz*dzdv, axis = 0) * (dvdx + dvdu * dudx)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
