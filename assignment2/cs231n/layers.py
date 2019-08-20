@@ -199,15 +199,25 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        sample_mean = x.mean(axis = 0)
-        sample_var = x.var(axis = 0) + eps
-        std = np.sqrt(sample_var)
-        z = (x - sample_mean) / std
-        out = gamma * z + beta
-        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
-        running_var = momentum * running_var + (1 - momentum) * sample_var
+#         sample_mean = x.mean(axis = 0)
+#         sample_var = x.var(axis = 0) + eps
+#         std = np.sqrt(sample_var)
+#         z = (x - sample_mean) / std
+#         out = gamma * z + beta
+#         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+#         running_var = momentum * running_var + (1 - momentum) * sample_var
         
-        cache = {'mean':sample_mean, 'var':sample_var, 'x':x, 'z':z, 'out':out, 'std': std, 'gamma':gamma}
+#         cache = {'mean':sample_mean, 'var':sample_var, 'x':x, 'z':z, 'out':out, 'std': std, 'gamma':gamma}
+        
+        mu = 1. / N * np.sum(x, axis = 0)
+        xmu = x - mu
+        sq = xmu ** 2
+        var = 1. / N * np.sum(sq, axis = 0)
+        std = np.sqrt(var + eps)
+        istd = 1. / std
+        xbn = xmu * istd
+        out = gamma * xbn + beta
+        cache = (x, mu, xmu, sq, var, std, istd, xbn, eps, gamma)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -267,24 +277,25 @@ def batchnorm_backward(dout, cache):
     #
     # f = gamma * z + beta
     # z = (x - u)/ sqrt(v)   (N,D)
-    # u = x/N            (D,)
-    # v = (x - u)**2 / N    (D,)
+    # u = sum(x)/N            (D,)
+    # v = sum((x - u)**2) / N    (D,)
+    x, mu, xmu, sq, var, std, istd, xbn, eps, gamma = cache
     dbeta = dout.sum(axis = 0) #(D, )
-    dgamma = np.sum(dout * cache['z'], axis = 0) #(D, )
+    dgamma = np.sum(dout * xbn, axis = 0) #(D, )
     
     # low dim broadcast to high dim
     N = 1.0 * dout.shape[0]
-    dfdz = dout * cache['gamma'] #(N, D)
+    dfdz = dout * gamma #(N, D)
     dudx = 1/N             #(N, D)
-    dvdu = - 2 / N * np.sum(cache['x'] - cache['mean'], axis = 0) #(D, )
-    dvdx = 2 / N * (cache['x'] - cache['mean']) #(N, D)
+    dvdu = - 2 / N * np.sum(x - mu, axis = 0) #(D, )
+    dvdx = 2 / N * (x - mu) #(N, D)
     
-    dzdu = - 1 / cache['std'] #(D, )
+    dzdu = - 1 / std #(D, )
     # why shape: (N, D), A: the shape is actually decided by the formula
     # z = (x - u)/ sqrt(v), so dzdv has (x-u) which x has the largest shape (N, D)
     # for dydx, we can have the result shape with lower dim than y, but will broadcast when it is needed
-    dzdv = - 0.5 * (cache['var'] ** -1.5) * (cache['x'] - cache['mean']) #(N, D)
-    dzdx = 1 / cache['std'] # (N， D)
+    dzdv = - 0.5 * (var ** -1.5) * (x - mu) #(N, D)
+    dzdx = 1 / std # (N， D)
     
     # dx (N, D)
     # dx = dfdz * dzdx + dfdz * dzdu * dudx + dfdz * dzdv * (dvdx + dvdu * dudx)
@@ -322,8 +333,32 @@ def batchnorm_backward_alt(dout, cache):
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    N, D = dout.shape
+    x, mu, xmu, sq, var, std, istd, xbn, eps, gamma = cache
+#     mu = 1. / N * np.sum(x, axis = 0)  (D,)
+#     xmu = x - mu                (N, D)
+#     sq = xmu ** 2               (N, D)
+#     var = 1. / N * np.sum(sq, axis = 0) (D,)
+#     std = np.sqrt(var + eps)        (D,)
+#     istd = 1. / std              (D,)
+#     xbn = xmu * istd             (N,D)
+#     out = gamma * xbn + beta        (N,D)
 
-    pass
+    dbeta = np.sum(dout, axis = 0)
+    dgamma = np.sum(dout * xbn , axis = 0)
+    
+    dxbn = dout * gamma
+    dxmu1 = dxbn * istd
+    distd = np.sum(dxbn * xmu, axis = 0)
+    dstd = - 1. / (std**2) * distd
+    dvar = 0.5 / np.sqrt(var + eps) * dstd
+    dsq = 1. / N * np.ones((N,D)) * dvar
+    dxmu2 = dsq * xmu * 2
+    dxmu = dxmu1 + dxmu2
+    dmu = -np.sum(dxmu, axis = 0)
+    dx1 = 1./N * np.ones((N,D)) * dmu
+    dx = dxmu + dx1
+    
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
