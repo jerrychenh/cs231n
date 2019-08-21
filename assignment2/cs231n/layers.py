@@ -118,7 +118,6 @@ def relu_backward(dout, cache):
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
     dx = dout * (x > 0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -173,6 +172,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     N, D = x.shape
     running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
     running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
+    layer_type = bn_param.get('layer_type', 0)
 
     out, cache = None, None
     if mode == 'train':
@@ -218,6 +218,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         xbn = xmu * istd
         out = gamma * xbn + beta
         cache = (x, mu, xmu, sq, var, std, istd, xbn, eps, gamma)
+        if layer_type == 0:
+            running_mean = momentum * running_mean + (1 - momentum) * mu
+            running_var = momentum * running_var + (1 - momentum) * var
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -232,7 +235,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        out = gamma * (x - running_mean) / np.sqrt(running_var) + beta
+        out = gamma * (x - running_mean) / np.sqrt(running_var + eps) + beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -403,8 +406,10 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    ln_param['mode'] = 'train'
+    ln_param['normtype'] = 1
+    out, cache = batchnorm_forward(x.T, gamma.reshape(-1, 1), beta.reshape(-1, 1), ln_param)
+    out = out.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -439,7 +444,8 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx, dgamma, dbeta = batchnorm_backward_alt(dout.T, cache)
+    dx = dx.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
