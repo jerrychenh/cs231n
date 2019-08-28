@@ -142,7 +142,50 @@ class CaptioningRNN(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # 1 the init input h
+        h0 = features.dot(W_proj) + b_proj
+        
+        # 2
+        # captions_in (N,T)
+#         N, T = captions_in.shape
+#         V, W = W_embed.shape
+#         x = np.zeros((N, T, W))
+#         for n in range(N):
+#             x[n] = W_embed[captions_in[n]]
+            
+        x, embed_cache = word_embedding_forward(captions_in, W_embed)
+            
+        #3
+        
+        h, rnn_cache = None, None
+        if self.cell_type == 'rnn':
+            h, rnn_cache = rnn_forward(x, h0, Wx, Wh, b)
+            
+        #4
+        out, affine_cache = temporal_affine_forward(h, W_vocab, b_vocab)
+        
+        #5
+        loss, dout = temporal_softmax_loss(out, captions_out, mask)
+        
+        # ---------backward propagation-----------
+        dout, dW_vocab, db_vocab = temporal_affine_backward(dout, affine_cache)
+        
+        dx, dh0, dWx, dWh, db = rnn_backward(dout, rnn_cache)
+        
+        dW_embed = word_embedding_backward(dx, embed_cache)
+        
+        db_proj = np.sum(dh0, axis = 0)
+        dW_proj = features.T.dot(dh0)
+        
+        
+        grads['W_proj'] = dW_proj
+        grads['b_proj'] = db_proj
+        grads['W_embed'] = dW_embed
+        grads['Wx'] = dWx
+        grads['Wh'] = dWh
+        grads['b'] = db
+        grads['W_vocab'] = dW_vocab
+        grads['b_vocab'] = db_vocab
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -211,7 +254,22 @@ class CaptioningRNN(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        prev_h = features.dot(W_proj) + b_proj
+        caption = self._start * np.ones((N,1), dtype=np.int32)
+        
+        for s in range(max_length):
+            x, _ = word_embedding_forward(caption, W_embed)
+            x = x.reshape((x.shape[0], -1))
+            next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            #out, _ = temporal_affine_forward(next_h, W_vocab, b_vocab) #(N, 1, voc_size)
+            out = next_h.dot(W_vocab) + b_vocab
+            caption = np.argmax(out, axis = 1)
+            
+            captions[:, s] = caption
+            caption = caption.reshape((caption.shape[0], 1))
+            prev_h = next_h
+            
+        
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
