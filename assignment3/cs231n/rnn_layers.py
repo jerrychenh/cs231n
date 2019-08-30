@@ -430,8 +430,21 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    N, T, D = x.shape
+    H = h0.shape[1]
+    
+    cache = []
+    prev_c = np.zeros((N, H))
+    prev_h = h0
+    h = np.zeros((N, T, H))
+    for t in range(T):
+        next_h, next_c, lstm_cache = lstm_step_forward(x[:, t, :], prev_h, prev_c, Wx, Wh, b)
+        h[:, t, :] = next_h
+        
+        prev_h = next_h
+        prev_c = next_c
+        cache.append(lstm_cache)
+    # next_h, next_c, cache = lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -462,8 +475,32 @@ def lstm_backward(dh, cache):
     # You should use the lstm_step_backward function that you just defined.     #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    x = cache[0][0]
+    D = x.shape[1]
+    N, T, H = dh.shape
+    
+    dx = np.zeros((N, T, D))
+    dWx = np.zeros((D, 4*H))
+    dWh = np.zeros((H, 4*H))
+    db = np.zeros((4*H, ))
+    dnext_h = np.zeros((N, H))
+    dnext_c = np.zeros((N, H))
+    
+    for t in range(T):
+        lstm_cache = cache[-1-t]
+        dnext_h += dh[:, -1-t, :]
+        dxt, dprev_h, dprev_c, dWxt, dWht, dbt = lstm_step_backward(dnext_h, dnext_c, lstm_cache)
+        dnext_h = dprev_h
+        dnext_c = dprev_c
+        dx[:, -1-t, :] += dxt
+        dWx += dWxt
+        dWh += dWht
+        db += dbt
+        
+    dh0 = dprev_h
+        
+    # dx, dprev_h, dprev_c, dWx, dWh, db
+    # lstm_step_backward(dnext_h, dnext_c, cache)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################

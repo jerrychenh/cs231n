@@ -157,9 +157,11 @@ class CaptioningRNN(object):
             
         #3
         
-        h, rnn_cache = None, None
+        h, cell_cache = None, None
         if self.cell_type == 'rnn':
-            h, rnn_cache = rnn_forward(x, h0, Wx, Wh, b)
+            h, cell_cache = rnn_forward(x, h0, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            h, cell_cache = lstm_forward(x, h0, Wx, Wh, b)
             
         #4
         out, affine_cache = temporal_affine_forward(h, W_vocab, b_vocab)
@@ -170,7 +172,10 @@ class CaptioningRNN(object):
         # ---------backward propagation-----------
         dout, dW_vocab, db_vocab = temporal_affine_backward(dout, affine_cache)
         
-        dx, dh0, dWx, dWh, db = rnn_backward(dout, rnn_cache)
+        if self.cell_type == 'rnn':
+            dx, dh0, dWx, dWh, db = rnn_backward(dout, cell_cache)
+        elif self.cell_type == 'lstm':
+            dx, dh0, dWx, dWh, db = lstm_backward(dout, cell_cache)
         
         dW_embed = word_embedding_backward(dx, embed_cache)
         
@@ -254,13 +259,18 @@ class CaptioningRNN(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        prev_h = features.dot(W_proj) + b_proj
+        prev_h, next_h = features.dot(W_proj) + b_proj, None
+        H = prev_h.shape[1]
+        prev_c, next_c = np.zeros((N, H)), None
         caption = self._start * np.ones((N,1), dtype=np.int32)
         
         for s in range(max_length):
             x, _ = word_embedding_forward(caption, W_embed)
             x = x.reshape((x.shape[0], -1))
-            next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            if self.cell_type == 'rnn':
+                next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            elif self.cell_type == 'lstm':
+                next_h, next_c, _ = lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b)
             #out, _ = temporal_affine_forward(next_h, W_vocab, b_vocab) #(N, 1, voc_size)
             out = next_h.dot(W_vocab) + b_vocab
             caption = np.argmax(out, axis = 1)
@@ -268,6 +278,7 @@ class CaptioningRNN(object):
             captions[:, s] = caption
             caption = caption.reshape((caption.shape[0], 1))
             prev_h = next_h
+            prev_c = next_c
             
         
 
